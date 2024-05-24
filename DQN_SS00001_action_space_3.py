@@ -56,8 +56,8 @@ buffer_limit = 1000
 batch_size = 32  # for mini_batch
 max_trade_share = 10
 tau = 0.001
-action_space = 2 * max_trade_share + 1
-EPSILON_SIZE = 0.1
+action_space = 3
+EPSILON_SIZE = 0.5
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -100,29 +100,47 @@ class Trade():
         if self.cur_step < self.total_steps - 1:
             self.take_action(action)
             state = self.next_observation()
-            reward = self.cur_balance - balance
+            # reward = self.cur_balance - balance
+            reward = ((self.cur_balance/balance) - 1) * 100
 
         done = self.cur_step == self.total_steps - 2
         return state, reward, done
 
     def take_action(self, action):
-        action -= max_trade_share
-        if action > 0:
-            share = action
+        if action == 2:
             price = self.cur_close_price * (1 + self.commission_rate)
-            if self.cash < price * share:
-                # share = int(self.cash / (price * share))
-                share = int(self.cash / (price))
+            if self.cash > price:
+                share = int(self.cash / price)
+            else:
+                return;
             self.cash -= price * share
             self.shares += share
-
-        elif action < 0:
-            share = -1 * action
+        elif action == 0:
             price = self.cur_close_price * (1 - self.commission_rate)
-            if self.shares < share:
+            if self.shares > 0:
                 share = self.shares
+            else:
+                return;
             self.cash += price * share
             self.shares -= share
+
+        # action -= max_trade_share
+        # if action > 0:
+        #     share = action
+        #     price = self.cur_close_price * (1 + self.commission_rate)
+        #     if self.cash < price * share:
+        #         # share = int(self.cash / (price * share))
+        #         share = int(self.cash / (price))
+        #     self.cash -= price * share
+        #     self.shares += share
+        #
+        # elif action < 0:
+        #     share = -1 * action
+        #     price = self.cur_close_price * (1 - self.commission_rate)
+        #     if self.shares < share:
+        #         share = self.shares
+        #     self.cash += price * share
+        #     self.shares -= share
 
     def next_observation(self):
         obs = []
@@ -297,9 +315,12 @@ def train(window_size=20, starting_balance=100000, resume_epoch=0, max_epoch=100
         loss_history.append(loss)
 
         np_actions = np.array(action_history)
-        index_0 = len(np.where(np_actions == 10)[0])
-        index_1 = len(np.where(np_actions > 10)[0])
-        index_2 = len(np.where(np_actions < 10)[0])
+        # index_0 = len(np.where(np_actions == 10)[0])
+        # index_1 = len(np.where(np_actions > 10)[0])
+        # index_2 = len(np.where(np_actions < 10)[0])
+        index_0 = len(np.where(np_actions == 1)[0])
+        index_1 = len(np.where(np_actions > 1)[0])
+        index_2 = len(np.where(np_actions < 1)[0])
         pv_history.append(env.cur_balance)
         pbar.set_description(str(index_0) + "/" + str(index_1) + "/" + str(index_2) + "/" + "%.4f" % env.cur_balance)
 
@@ -375,9 +396,12 @@ def test(window_size=20, starting_balance=100000, model_epi='final'):
     results_df.to_excel('dqn_result.xlsx', index=False)
 
 
-    index_0 = np.where(np_actions == 10)[0]
-    index_1 = np.where(np_actions > 10)[0]
-    index_2 = np.where(np_actions < 10)[0]
+    # index_0 = np.where(np_actions == 10)[0]
+    # index_1 = np.where(np_actions > 10)[0]
+    # index_2 = np.where(np_actions < 10)[0]
+    index_0 = np.where(np_actions == 1)[0]
+    index_1 = np.where(np_actions > 1)[0]
+    index_2 = np.where(np_actions < 1)[0]
 
     print(str(len(index_0)) + "/" + str(len(index_1)) + "/" + str(len(index_2)) + "/" + "%.4f" % env.cur_balance)
 
